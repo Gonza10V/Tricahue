@@ -1,4 +1,4 @@
-from tricahue import XDC
+import tricahue
 import unittest
 import os
 
@@ -20,7 +20,7 @@ homespace = 'https://synbiohub.org/synbiotest'
 fj_overwrite = False
 sbh_overwrite=False
 
-xdc = XDC(input_excel_path = excel_path,
+xdc = tricahue.XDC(input_excel_path = excel_path,
             fj_url = fj_url,
             fj_user = fj_user, 
             fj_pass = fj_pass, 
