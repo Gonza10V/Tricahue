@@ -1,7 +1,6 @@
 from excel2flapjack.main import X2F
 import excel2sbol.converter as conv
 import sbol2
-import tempfile
 import requests
 import os
 
@@ -78,7 +77,6 @@ class XDC:
         self.fj_overwrite = fj_overwrite
         self.fj_token = fj_token
         self.sbh_token = sbh_token
-        #self.status = "Not started"
         self.input_excel = pd.ExcelFile(self.input_excel_path)
         self.x2f = None
         self.homespace = 'https://sbolstandard.org'
@@ -95,8 +93,7 @@ class XDC:
                     fj_url=self.fj_url, 
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
-            self.sbh_collection_description = 'Collection of SBOL files uploaded from XDC'
-        #self.status = "Initialized"
+            self.sbh_collection_description = 'Collection of SBOL files uploaded from Tricahue'
 
         
     def log_in_fj(self):
@@ -129,12 +126,10 @@ class XDC:
                     }
             )
             self.sbh_token = response.text
-        #self.status = "Logged into SynBioHub"
+
 
     def convert_to_sbol(self):
-        #temp_dir = tempfile.TemporaryDirectory() #TODO:check if I need to create the temporary object in a different context
-        #file_path_out = os.path.join(temp_dir.name, 'converted_SBOL.xml')
-        
+        # Convert excel to SBOL
         conv.converter(file_path_in = self.input_excel_path, 
                 file_path_out = self.file_path_out, homespace=self.homespace)
         # Pull graph uri from synbiohub
@@ -163,27 +158,47 @@ class XDC:
         self.sbol_hash_map = sbol_hash_map
         self.x2f.sbol_hash_map = sbol_hash_map
         self.sbol_doc = doc
-        self.status = "Converted to SBOL"
+
+    def generate_sbol_hash_map(self):
+        response = requests.get(
+            f'{self.sbh_url}/profile',
+            headers={
+                'Accept': 'text/plain',
+                'X-authorization': self.sbh_token
+                }
+        )
+        self.sbol_graph_uri = response.json()['graphUri']
+        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
+
+
+        # create hashmap of flapjack id to sbol uri
+        self.sbol_doc.read(self.file_path_out)
+        self.sbol_hash_map = {}
+        for tl in self.sbol_doc:
+            #if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
+            sbol_uri = tl.properties['http://sbols.org/v2#persistentIdentity'][0]
+            sbol_uri = sbol_uri.replace(self.homespace, sbol_collec_url)
+            sbol_uri = f'{sbol_uri}/1'
+
+            sbol_name = str(tl.properties['http://sbols.org/v2#displayId'][0])
+            self.sbol_hash_map[sbol_name] = sbol_uri
+
 
     def upload_to_fj(self, ):
         self.x2f.create_df()
-        self.x2f.upload_medias()
-        #self.status = "Uploaded to Flapjack"
+        self.x2f.upload_medias() #TODO: change to upload all
 
     def upload_to_sbh(self):
-        #temp_dir = tempfile.TemporaryDirectory() #TODO:check if I need to create the temporary object in a different context
-        #file_path_out2 = os.path.join(temp_dir.name, 'SBOL_Fj_doc.xml')
-        
         # Add flapjack annotations to the SBOL
         doc = sbol2.Document()
         doc.read(self.file_path_out)
         for tl in self.sbol_doc:
             id = str(tl).split('/')[-2]
-            if id in self.xdc.sbol_hash_map:
+            if id in self.sbol_hash_map:
                 setattr(tl, 'flapjack_ID',
                         sbol2.URIProperty(tl,
                         'https://flapjack.rudge-lab.org/ID',
-                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.xdc.sbol_hash_map[id]}'))
+                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
 
@@ -206,7 +221,7 @@ class XDC:
                 'version' : '1',
                 'name' : self.sbh_collection,
                 'description' : self.sbh_collection_description, #TODO
-                'overwrite_merge' : sbh_overwrite
+                'overwrite_merge' : self.sbh_overwrite
             },
 
         )
@@ -224,7 +239,9 @@ class XDC:
     def run(self):
         self.initialize()
         self.log_in_fj()
+        self.log_in_sbh()
         self.convert_to_sbol()
+        self.generate_sbol_hash_map()
         self.upload_to_fj()
         self.upload_to_sbh()
 
