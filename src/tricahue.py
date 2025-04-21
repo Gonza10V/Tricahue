@@ -77,7 +77,6 @@ class XDC:
         self.fj_overwrite = fj_overwrite
         self.fj_token = fj_token
         self.sbh_token = sbh_token
-        #self.status = "Not started"
         self.input_excel = pd.ExcelFile(self.input_excel_path)
         self.x2f = None
         self.homespace = 'https://sbolstandard.org'
@@ -94,8 +93,7 @@ class XDC:
                     fj_url=self.fj_url, 
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
-            self.sbh_collection_description = 'Collection of SBOL files uploaded from XDC'
-        #self.status = "Initialized"
+            self.sbh_collection_description = 'Collection of SBOL files uploaded from Tricahue'
 
         
     def log_in_fj(self):
@@ -128,12 +126,10 @@ class XDC:
                     }
             )
             self.sbh_token = response.text
-        #self.status = "Logged into SynBioHub"
+
 
     def convert_to_sbol(self):
-        #temp_dir = tempfile.TemporaryDirectory() #TODO:check if I need to create the temporary object in a different context
-        #file_path_out = os.path.join(temp_dir.name, 'converted_SBOL.xml')
-        
+        # Convert excel to SBOL
         conv.converter(file_path_in = self.input_excel_path, 
                 file_path_out = self.file_path_out, homespace=self.homespace)
         # Pull graph uri from synbiohub
@@ -162,7 +158,6 @@ class XDC:
         self.sbol_hash_map = sbol_hash_map
         self.x2f.sbol_hash_map = sbol_hash_map
         self.sbol_doc = doc
-        self.status = "Converted to SBOL"
 
     def generate_sbol_hash_map(self):
         response = requests.get(
@@ -244,7 +239,9 @@ class XDC:
     def run(self):
         self.initialize()
         self.log_in_fj()
+        self.log_in_sbh()
         self.convert_to_sbol()
+        self.generate_sbol_hash_map()
         self.upload_to_fj()
         self.upload_to_sbh()
 
