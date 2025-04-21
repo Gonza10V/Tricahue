@@ -9,7 +9,9 @@ description = "This package extracts experimental data and metadata, converts to
 readme = "README.md"
 dependencies = [
     "excel2flapjack==1.0.10",
-    "excel2sbol==1.0.29"
+    "excel2sbol==1.0.29",
+    "numpy==1.26.1",
+    "pandas==1.3.3"   
 ]
 requires-python = ">=3.7"
 license = "MIT"
