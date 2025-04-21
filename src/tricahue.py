@@ -179,11 +179,11 @@ class XDC:
         doc.read(self.file_path_out)
         for tl in self.sbol_doc:
             id = str(tl).split('/')[-2]
-            if id in self.xdc.sbol_hash_map:
+            if id in self.sbol_hash_map:
                 setattr(tl, 'flapjack_ID',
                         sbol2.URIProperty(tl,
                         'https://flapjack.rudge-lab.org/ID',
-                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.xdc.sbol_hash_map[id]}'))
+                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
 
@@ -206,7 +206,7 @@ class XDC:
                 'version' : '1',
                 'name' : self.sbh_collection,
                 'description' : self.sbh_collection_description, #TODO
-                'overwrite_merge' : sbh_overwrite
+                'overwrite_merge' : self.sbh_overwrite
             },
 
         )
