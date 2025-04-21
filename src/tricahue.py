@@ -1,7 +1,6 @@
 from excel2flapjack.main import X2F
 import excel2sbol.converter as conv
 import sbol2
-import tempfile
 import requests
 import os
 
@@ -165,15 +164,36 @@ class XDC:
         self.sbol_doc = doc
         self.status = "Converted to SBOL"
 
+    def generate_sbol_hash_map(self):
+        response = requests.get(
+            f'{self.sbh_url}/profile',
+            headers={
+                'Accept': 'text/plain',
+                'X-authorization': self.sbh_token
+                }
+        )
+        self.sbol_graph_uri = response.json()['graphUri']
+        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
+
+
+        # create hashmap of flapjack id to sbol uri
+        self.sbol_doc.read(self.file_path_out)
+        self.sbol_hash_map = {}
+        for tl in self.sbol_doc:
+            #if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
+            sbol_uri = tl.properties['http://sbols.org/v2#persistentIdentity'][0]
+            sbol_uri = sbol_uri.replace(self.homespace, sbol_collec_url)
+            sbol_uri = f'{sbol_uri}/1'
+
+            sbol_name = str(tl.properties['http://sbols.org/v2#displayId'][0])
+            self.sbol_hash_map[sbol_name] = sbol_uri
+
+
     def upload_to_fj(self, ):
         self.x2f.create_df()
-        self.x2f.upload_medias()
-        #self.status = "Uploaded to Flapjack"
+        self.x2f.upload_medias() #TODO: change to upload all
 
     def upload_to_sbh(self):
-        #temp_dir = tempfile.TemporaryDirectory() #TODO:check if I need to create the temporary object in a different context
-        #file_path_out2 = os.path.join(temp_dir.name, 'SBOL_Fj_doc.xml')
-        
         # Add flapjack annotations to the SBOL
         doc = sbol2.Document()
         doc.read(self.file_path_out)
