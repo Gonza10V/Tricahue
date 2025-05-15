@@ -1,5 +1,5 @@
 from excel2flapjack.main import X2F
-import excel2sbol.converter as conv
+import excel2sbol
 import sbol2
 import requests
 import os
@@ -79,7 +79,6 @@ class XDC:
         self.sbh_token = sbh_token
         self.input_excel = pd.ExcelFile(self.input_excel_path)
         self.x2f = None
-        self.homespace = 'https://sbolstandard.org'
         self.sbol_doc = None
         self.sbol_fj_doc = None
         self.sbol_graph_uri = None
@@ -94,7 +93,10 @@ class XDC:
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
             self.sbh_collection_description = 'Collection of SBOL files uploaded from Tricahue'
-
+        if self.sbol_doc is None:
+            self.sbol_doc = sbol2.Document()
+        if self.sbol_fj_doc is None:
+            self.sbol_fj_doc = sbol2.Document()
         
     def log_in_fj(self):
         self.x2f = X2F(excel_path=self.input_excel_path, 
@@ -130,7 +132,7 @@ class XDC:
 
     def convert_to_sbol(self):
         # Convert excel to SBOL
-        conv.converter(file_path_in = self.input_excel_path, 
+        excel2sbol.converter(file_path_in = self.input_excel_path, 
                 file_path_out = self.file_path_out, homespace=self.homespace)
         # Pull graph uri from synbiohub
         response = requests.get(
@@ -185,8 +187,10 @@ class XDC:
 
 
     def upload_to_fj(self, ):
+        self.x2f.generate_sheets_to_object_mapping()
+        self.x2f.index_skiprows = 3
         self.x2f.create_df()
-        self.x2f.upload_medias() #TODO: change to upload all
+        self.x2f.upload_objects_in_sheets() #upload all objects on the sheets
 
     def upload_to_sbh(self):
         # Add flapjack annotations to the SBOL
@@ -195,10 +199,10 @@ class XDC:
         for tl in self.sbol_doc:
             id = str(tl).split('/')[-2]
             if id in self.sbol_hash_map:
-                setattr(tl, 'flapjack_ID',
+                setattr(tl, 'Flapjack_ID',
                         sbol2.URIProperty(tl,
-                        'https://flapjack.rudge-lab.org/ID',
-                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.sbol_hash_map[id]}'))
+                        f'https://flapjack#ID',
+                            '0', '1', [], initial_value=f'http://wwww.{self.fj_url}/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
 
