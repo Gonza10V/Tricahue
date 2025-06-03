@@ -134,34 +134,13 @@ class XDC:
         # Convert excel to SBOL
         excel2sbol.converter(file_path_in = self.input_excel_path, 
                 file_path_out = self.file_path_out, homespace=self.homespace)
-        # Pull graph uri from synbiohub
-        response = requests.get(
-            f'{self.sbh_url}/profile',
-            headers={
-                'Accept': 'text/plain',
-                'X-authorization': self.sbh_token
-                }
-        )
-        self.sbol_graph_uri = response.json()['graphUri']
-        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
-
-        # Parse sbol to create hashmap of flapjack id to sbol uri
+        
         doc = sbol2.Document()
         doc.read(self.file_path_out)
-        sbol_hash_map = {}
-        for tl in doc:
-            if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
-                sbol_uri = tl.properties['http://sbols.org/v2#persistentIdentity'][0]
-                sbol_uri = sbol_uri.replace(self.homespace, sbol_collec_url)
-                sbol_uri = f'{sbol_uri}/1'
-
-                sbol_name = str(tl.properties['http://sbols.org/v2#displayId'][0])
-                sbol_hash_map[sbol_name] = sbol_uri
-        self.sbol_hash_map = sbol_hash_map
-        self.x2f.sbol_hash_map = sbol_hash_map
-        self.sbol_doc = doc
+        self.sbol_doc = doc        
 
     def generate_sbol_hash_map(self):
+        # Pull graph uri from synbiohub
         response = requests.get(
             f'{self.sbh_url}/profile',
             headers={
@@ -174,7 +153,6 @@ class XDC:
 
 
         # create hashmap of flapjack id to sbol uri
-        self.sbol_doc.read(self.file_path_out)
         self.sbol_hash_map = {}
         for tl in self.sbol_doc:
             #if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
