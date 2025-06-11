@@ -130,11 +130,9 @@ class XDC:
             self.sbh_token = response.text
 
 
-    def convert_to_sbol(self):
-        # Convert excel to SBOL
+    def convert_to_sbol(self, sbol_version=2):
         excel2sbol.converter(file_path_in = self.input_excel_path, 
-                file_path_out = self.file_path_out, homespace=self.homespace)
-        
+                file_path_out = self.file_path_out, homespace=self.homespace, sbol_version=sbol_version)
         doc = sbol2.Document()
         doc.read(self.file_path_out)
         self.sbol_doc = doc        
