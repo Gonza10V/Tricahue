@@ -126,7 +126,11 @@ class XDC:
                     }
             )
             self.sbh_token = response.text
-
+        else:
+            response = requests.post(
+                f'{self.sbh_url}/login',
+                headers={'Accept': 'text/plain', 'X-Authorization': self.sbh_token}
+            )
 
     def convert_to_sbol(self):
         # Convert excel to SBOL
