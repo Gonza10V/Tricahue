@@ -1,5 +1,5 @@
 from excel2flapjack.main import X2F
-import excel2sbol.converter as conv
+import excel2sbol
 import sbol2
 import requests
 import os
@@ -79,7 +79,6 @@ class XDC:
         self.sbh_token = sbh_token
         self.input_excel = pd.ExcelFile(self.input_excel_path)
         self.x2f = None
-        self.homespace = 'https://sbolstandard.org'
         self.sbol_doc = None
         self.sbol_fj_doc = None
         self.sbol_graph_uri = None
@@ -94,7 +93,10 @@ class XDC:
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
             self.sbh_collection_description = 'Collection of SBOL files uploaded from Tricahue'
-
+        if self.sbol_doc is None:
+            self.sbol_doc = sbol2.Document()
+        if self.sbol_fj_doc is None:
+            self.sbol_fj_doc = sbol2.Document()
         
     def log_in_fj(self):
         self.x2f = X2F(excel_path=self.input_excel_path, 
@@ -132,38 +134,15 @@ class XDC:
                 headers={'Accept': 'text/plain', 'X-Authorization': self.sbh_token}
             )
 
-    def convert_to_sbol(self):
-        # Convert excel to SBOL
-        conv.converter(file_path_in = self.input_excel_path, 
-                file_path_out = self.file_path_out, homespace=self.homespace)
-        # Pull graph uri from synbiohub
-        response = requests.get(
-            f'{self.sbh_url}/profile',
-            headers={
-                'Accept': 'text/plain',
-                'X-authorization': self.sbh_token
-                }
-        )
-        self.sbol_graph_uri = response.json()['graphUri']
-        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
-
-        # Parse sbol to create hashmap of flapjack id to sbol uri
+    def convert_to_sbol(self, sbol_version=2):
+        excel2sbol.converter(file_path_in = self.input_excel_path, 
+                file_path_out = self.file_path_out, homespace=self.homespace, sbol_version=sbol_version)
         doc = sbol2.Document()
         doc.read(self.file_path_out)
-        sbol_hash_map = {}
-        for tl in doc:
-            if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
-                sbol_uri = tl.properties['http://sbols.org/v2#persistentIdentity'][0]
-                sbol_uri = sbol_uri.replace(self.homespace, sbol_collec_url)
-                sbol_uri = f'{sbol_uri}/1'
-
-                sbol_name = str(tl.properties['http://sbols.org/v2#displayId'][0])
-                sbol_hash_map[sbol_name] = sbol_uri
-        self.sbol_hash_map = sbol_hash_map
-        self.x2f.sbol_hash_map = sbol_hash_map
-        self.sbol_doc = doc
+        self.sbol_doc = doc        
 
     def generate_sbol_hash_map(self):
+        # Pull graph uri from synbiohub
         response = requests.get(
             f'{self.sbh_url}/profile',
             headers={
@@ -176,7 +155,6 @@ class XDC:
 
 
         # create hashmap of flapjack id to sbol uri
-        self.sbol_doc.read(self.file_path_out)
         self.sbol_hash_map = {}
         for tl in self.sbol_doc:
             #if 'https://flapjack.rudge-lab.org/ID' in tl.properties:
@@ -189,8 +167,10 @@ class XDC:
 
 
     def upload_to_fj(self, ):
+        self.x2f.generate_sheets_to_object_mapping()
+        self.x2f.index_skiprows = 3
         self.x2f.create_df()
-        self.x2f.upload_medias() #TODO: change to upload all
+        self.x2f.upload_objects_in_sheets() #upload all objects on the sheets
 
     def upload_to_sbh(self):
         # Add flapjack annotations to the SBOL
@@ -199,10 +179,10 @@ class XDC:
         for tl in self.sbol_doc:
             id = str(tl).split('/')[-2]
             if id in self.sbol_hash_map:
-                setattr(tl, 'flapjack_ID',
+                setattr(tl, 'Flapjack_ID',
                         sbol2.URIProperty(tl,
-                        'https://flapjack.rudge-lab.org/ID',
-                            '0', '*', [], initial_value=f'http://wwww.flapjack.com/{self.sbol_hash_map[id]}'))
+                        f'https://flapjack#ID',
+                            '0', '1', [], initial_value=f'http://wwww.{self.fj_url}/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
 
