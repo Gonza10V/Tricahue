@@ -166,11 +166,12 @@ class XDC:
             self.sbol_hash_map[sbol_name] = sbol_uri
 
 
-    def upload_to_fj(self, ):
+    def upload_to_fj(self):
+        self.x2f.sbol_hash_map = self.sbol_hash_map
         self.x2f.generate_sheets_to_object_mapping()
         self.x2f.index_skiprows = 3
         self.x2f.create_df()
-        self.x2f.upload_objects_in_sheets() #upload all objects on the sheets
+        self.x2f.upload_medias() #upload all objects on the sheets
 
     def upload_to_sbh(self):
         # Add flapjack annotations to the SBOL
@@ -181,7 +182,7 @@ class XDC:
             if id in self.sbol_hash_map:
                 setattr(tl, 'Flapjack_ID',
                         sbol2.URIProperty(tl,
-                        f'https://flapjack#ID',
+                        f'https://flapjack.rudge-lab.org/ID',
                             '0', '1', [], initial_value=f'http://wwww.{self.fj_url}/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
