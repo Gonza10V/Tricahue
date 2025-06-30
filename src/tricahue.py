@@ -334,7 +334,7 @@ class XDE:
             sample_data_list.append(temp_tuple)
         
         with pd.ExcelWriter(file_list[0], mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                result.to_excel(writer,'Sample',index=False)
+            result.to_excel(writer,'Sample',index=False)
 
         return sample_data_list
 
