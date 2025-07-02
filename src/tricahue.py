@@ -88,7 +88,7 @@ class XDC:
         self.sbol_hash_map = {}
 
     def initialize(self):
-        self.x2f = X2F(excel_path=self.input_excel_path, 
+        self.x2f = X2F(excel_path=self.input_excel_path,
                     fj_url=self.fj_url, 
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
@@ -104,12 +104,12 @@ class XDC:
                     overwrite=self.fj_overwrite)
         
         if self.fj_token:
-            self.x2f.fj.log_in_token(username=self.fj_user, access_token=self.fj_token, refresh_token=None)
-            
+            self.x2f.fj.log_in_token(username=self.fj_user, access_token=None, refresh_token=self.fj_token)
+            self.x2f.fj.refresh()
 
         elif self.fj_user and self.fj_pass:
             self.x2f.fj.log_in(username=self.fj_user, password=self.fj_pass)
-            self.fj_token = self.x2f.fj.access_token
+            self.fj_token = self.x2f.fj.refresh_token
         
         else:
             print('Unable to authenticate into Flapjack')
