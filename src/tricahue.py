@@ -254,6 +254,8 @@ class XDE:
         Builds the final dataframe
     writeToMeasurements(XDC_file_name,final_dataframe)
         Writes the final dataframe to the measurements sheet
+    extractData(file_list,sheet_to_read_from,time_col_name,data_cols_offset,num_rows_btwn_data)
+        Full run; extracts data from the input excel files and writes it to the XDC sheet
 
     """
     def getFileNameFromString(self, string):
@@ -478,3 +480,9 @@ class XDE:
         book.close()
 
         return
+    
+    def extractData(self, file_list, sheet_to_read_from, time_col_name, data_cols_offset, num_rows_btwn_data=0):
+        """Full run; extracts data from the input excel files and writes it to the XDC sheet."""
+        sample_list = self.generateSampleData(file_list, sheet_to_read_from, time_col_name, data_cols_offset)
+        output_df = self.buildFinalDF(file_list, sample_list, time_col_name, data_cols_offset, num_rows_btwn_data, sheet_to_read_from)
+        self.writeToMeasurements(file_list[0], output_df)
