@@ -151,8 +151,7 @@ class XDC:
                 }
         )
         self.sbol_graph_uri = response.json()['graphUri']
-        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
-
+        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}'
 
         # create hashmap of flapjack id to sbol uri
         self.sbol_hash_map = {}
@@ -166,12 +165,14 @@ class XDC:
             self.sbol_hash_map[sbol_name] = sbol_uri
 
 
-    def upload_to_fj(self):
+    def upload_to_fj(self, header_rows=3):
         self.x2f.sbol_hash_map = self.sbol_hash_map
         self.x2f.generate_sheets_to_object_mapping()
-        self.x2f.index_skiprows = 3
-        self.x2f.create_df()
-        self.x2f.upload_medias() #upload all objects on the sheets
+        self.x2f.index_skiprows = header_rows
+        # self.x2f.create_df()
+        # change to upload_object_in_sheets
+        self.x2f.upload_all() 
+
 
     def upload_to_sbh(self):
         # Add flapjack annotations to the SBOL
@@ -265,7 +266,7 @@ class XDE:
     
         return result.group()
 
-    def generateSampleData(self, file_list,sheet_to_read_from,time_col_name,data_cols_offset): 
+    def generateSampleData(self, file_list, sheet_to_read_from,time_col_name, data_cols_offset=0): 
         num_assays = len(file_list) - 1
         file_name_list = []
 
@@ -336,7 +337,7 @@ class XDE:
             sample_data_list.append(temp_tuple)
         
         with pd.ExcelWriter(file_list[0], mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-            result.to_excel(writer,'Sample',index=False)
+            result.to_excel(writer,'Sample',startrow=3,index=False)
 
         return sample_data_list
 
@@ -469,6 +470,10 @@ class XDE:
         # Clear the existing data in the 'Measurement' sheet
         sheet.delete_rows(1, sheet.max_row)
 
+        # Write three blank rows before writing the data
+        for _ in range(3):
+            sheet.append([''] * 5)
+
         # Write the headers
         sheet.append(['Measurement ID', 'Sample ID', 'Signal ID', 'Time', 'Value'])
 
@@ -482,7 +487,9 @@ class XDE:
         return
     
     def extractData(self, file_list, sheet_to_read_from, time_col_name, data_cols_offset, num_rows_btwn_data=0):
-        """Full run; extracts data from the input excel files and writes it to the XDC sheet."""
+        """
+        Full run; extracts data from the input excel files and writes it to the XDC sheet.
+        """
         sample_list = self.generateSampleData(file_list, sheet_to_read_from, time_col_name, data_cols_offset)
         output_df = self.buildFinalDF(file_list, sample_list, time_col_name, data_cols_offset, num_rows_btwn_data, sheet_to_read_from)
         self.writeToMeasurements(file_list[0], output_df)
