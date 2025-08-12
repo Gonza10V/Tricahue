@@ -88,7 +88,7 @@ class XDC:
         self.sbol_hash_map = {}
 
     def initialize(self):
-        self.x2f = X2F(excel_path=self.input_excel_path, 
+        self.x2f = X2F(excel_path=self.input_excel_path,
                     fj_url=self.fj_url, 
                     overwrite=self.fj_overwrite)
         if self.sbh_collection_description is None:
@@ -104,12 +104,12 @@ class XDC:
                     overwrite=self.fj_overwrite)
         
         if self.fj_token:
-            self.x2f.fj.log_in_token(username=self.fj_user, access_token=self.fj_token, refresh_token=None)
-            
+            self.x2f.fj.log_in_token(username=self.fj_user, access_token=None, refresh_token=self.fj_token)
+            self.x2f.fj.refresh()
 
         elif self.fj_user and self.fj_pass:
             self.x2f.fj.log_in(username=self.fj_user, password=self.fj_pass)
-            self.fj_token = self.x2f.fj.access_token
+            self.fj_token = self.x2f.fj.refresh_token
         
         else:
             print('Unable to authenticate into Flapjack')
@@ -128,13 +128,15 @@ class XDC:
                     }
             )
             self.sbh_token = response.text
+        else:
+            response = requests.post(
+                f'{self.sbh_url}/login',
+                headers={'Accept': 'text/plain', 'X-Authorization': self.sbh_token}
+            )
 
-
-    def convert_to_sbol(self):
-        # Convert excel to SBOL
+    def convert_to_sbol(self, sbol_version=2):
         excel2sbol.converter(file_path_in = self.input_excel_path, 
-                file_path_out = self.file_path_out, homespace=self.homespace)
-        
+                file_path_out = self.file_path_out, homespace=self.homespace, sbol_version=sbol_version)
         doc = sbol2.Document()
         doc.read(self.file_path_out)
         self.sbol_doc = doc        
@@ -149,8 +151,7 @@ class XDC:
                 }
         )
         self.sbol_graph_uri = response.json()['graphUri']
-        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}/'
-
+        sbol_collec_url = f'{self.sbol_graph_uri}/{self.sbh_collection}'
 
         # create hashmap of flapjack id to sbol uri
         self.sbol_hash_map = {}
@@ -164,11 +165,14 @@ class XDC:
             self.sbol_hash_map[sbol_name] = sbol_uri
 
 
-    def upload_to_fj(self, ):
+    def upload_to_fj(self, header_rows=3):
+        self.x2f.sbol_hash_map = self.sbol_hash_map
         self.x2f.generate_sheets_to_object_mapping()
-        self.x2f.index_skiprows = 3
-        self.x2f.create_df()
-        self.x2f.upload_objects_in_sheets() #upload all objects on the sheets
+        self.x2f.index_skiprows = header_rows
+        # self.x2f.create_df()
+        # change to upload_object_in_sheets
+        self.x2f.upload_all() 
+
 
     def upload_to_sbh(self):
         # Add flapjack annotations to the SBOL
@@ -179,7 +183,7 @@ class XDC:
             if id in self.sbol_hash_map:
                 setattr(tl, 'Flapjack_ID',
                         sbol2.URIProperty(tl,
-                        f'https://flapjack#ID',
+                        f'https://flapjack.rudge-lab.org/ID',
                             '0', '1', [], initial_value=f'http://wwww.{self.fj_url}/{self.sbol_hash_map[id]}'))
         #doc = sbol2.Document()
         doc.write(self.file_path_out2)
@@ -251,6 +255,8 @@ class XDE:
         Builds the final dataframe
     writeToMeasurements(XDC_file_name,final_dataframe)
         Writes the final dataframe to the measurements sheet
+    extractData(file_list,sheet_to_read_from,time_col_name,data_cols_offset,num_rows_btwn_data)
+        Full run; extracts data from the input excel files and writes it to the XDC sheet
 
     """
     def getFileNameFromString(self, string):
@@ -260,7 +266,7 @@ class XDE:
     
         return result.group()
 
-    def generateSampleData(self, file_list,sheet_to_read_from,time_col_name,data_cols_offset): 
+    def generateSampleData(self, file_list, sheet_to_read_from,time_col_name, data_cols_offset=0): 
         num_assays = len(file_list) - 1
         file_name_list = []
 
@@ -331,7 +337,7 @@ class XDE:
             sample_data_list.append(temp_tuple)
         
         with pd.ExcelWriter(file_list[0], mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                result.to_excel(writer,'Sample',index=False)
+            result.to_excel(writer,'Sample',startrow=3,index=False)
 
         return sample_data_list
 
@@ -464,6 +470,10 @@ class XDE:
         # Clear the existing data in the 'Measurement' sheet
         sheet.delete_rows(1, sheet.max_row)
 
+        # Write three blank rows before writing the data
+        for _ in range(3):
+            sheet.append([''] * 5)
+
         # Write the headers
         sheet.append(['Measurement ID', 'Sample ID', 'Signal ID', 'Time', 'Value'])
 
@@ -475,3 +485,11 @@ class XDE:
         book.close()
 
         return
+    
+    def extractData(self, file_list, sheet_to_read_from, time_col_name, data_cols_offset, num_rows_btwn_data=0):
+        """
+        Full run; extracts data from the input excel files and writes it to the XDC sheet.
+        """
+        sample_list = self.generateSampleData(file_list, sheet_to_read_from, time_col_name, data_cols_offset)
+        output_df = self.buildFinalDF(file_list, sample_list, time_col_name, data_cols_offset, num_rows_btwn_data, sheet_to_read_from)
+        self.writeToMeasurements(file_list[0], output_df)
